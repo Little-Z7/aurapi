@@ -62,4 +62,29 @@ describe('AuthLayout', () => {
       'https://github.com/QuantumNous/new-api'
     )
   })
+
+  it('shows the NOTICE attribution sentence verbatim on the sign-in surface', async () => {
+    const root = createRootRoute()
+    const route = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      component: () => (
+        <AuthLayout>
+          <p>content</p>
+        </AuthLayout>
+      ),
+    })
+    const router = createRouter({
+      routeTree: root.addChildren([route]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+
+    expect(
+      await screen.findByText(
+        'Frontend design and development by New API contributors.'
+      )
+    ).toBeVisible()
+  })
 })

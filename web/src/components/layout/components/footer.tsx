@@ -121,6 +121,11 @@ function LegalLinks(props: { leadingSeparator?: boolean }) {
   )
 }
 
+// NOTICE (AGPLv3 section 7(b)) requires modified versions to show this exact
+// sentence, so it stays verbatim English instead of going through t().
+const NEW_API_NOTICE_ATTRIBUTION =
+  'Frontend design and development by New API contributors.'
+
 // inline=true returns just the inner span for composition in a parent flex
 // row. inline=false wraps in a centered/right-aligned div (default).
 export function ProjectAttribution(props: {
@@ -139,7 +144,8 @@ export function ProjectAttribution(props: {
       >
         {t('New API')}
       </a>
-      . {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
+      . {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}{' '}
+      <span lang='en'>{NEW_API_NOTICE_ATTRIBUTION}</span>
     </span>
   )
   if (props.inline) {
@@ -275,14 +281,14 @@ export function Footer(props: FooterProps) {
           {/* Links columns */}
           {isDemoSiteMode && (
             <div className='grid grid-cols-3 gap-8 md:gap-16'>
-              {displayColumns.map((column, index) => (
-                <div key={index}>
+              {displayColumns.map((column) => (
+                <div key={column.title}>
                   <p className='text-muted-foreground/50 mb-3 text-xs font-medium tracking-wider uppercase'>
                     {t(column.title)}
                   </p>
                   <ul className='space-y-2.5'>
-                    {column.links.map((link, linkIndex) => (
-                      <li key={linkIndex}>
+                    {column.links.map((link) => (
+                      <li key={`${link.text}-${link.href}`}>
                         <FooterLinkItem link={link} />
                       </li>
                     ))}
