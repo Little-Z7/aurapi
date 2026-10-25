@@ -808,9 +808,10 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Upstream fades the group label to 70% of the muted color, which is 3.1:1 on
- * the raised sidebar. */
+ * the raised sidebar, and sets it at 11px; 12px is the floor for CJK text. */
 [data-theme-preset='aura'] [data-slot='sidebar-group-label'] {
   color: var(--muted-foreground);
+  font-size: 0.75rem;
 }
 
 /* ── Font axis ────────────────────────────────────────────────────────────
