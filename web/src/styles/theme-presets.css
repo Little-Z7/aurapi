@@ -756,6 +756,63 @@ For commercial licensing, please contact support@quantumnous.com
     0 2px 8px rgb(0 0 0 / 25%);
 }
 
+/* Aura shell ─────────────────────────────────────────────────────────────
+ * Dimensions and nav styling live here, scoped to the preset, so the other
+ * presets keep upstream's sizes and the layout components stay unmodified.
+ * Everything below is unlayered: it wins over the @layer utilities classes on
+ * the same elements, but loses to utilities written with `!important`
+ * (e.g. the icon-rail `size-8!`), which is why the collapsed rail keeps
+ * upstream's 2rem buttons. */
+[data-theme-preset='aura'] {
+  --app-header-height: 3.5rem;
+}
+
+/* SidebarProvider writes --sidebar-width as an inline style, which only an
+ * !important author rule can override. The mobile sheet sets its own width on
+ * a descendant, so it is unaffected. */
+[data-theme-preset='aura'] [data-slot='sidebar-wrapper'] {
+  --sidebar-width: 14rem !important;
+  --sidebar-width-icon: 4rem !important;
+}
+
+/* Raised brand band over the page, with a soft line under it. */
+[data-theme-preset='aura'] [data-slot='app-header'] {
+  background-color: var(--sidebar);
+  border-bottom: 1px solid var(--sidebar-border);
+}
+[data-theme-preset='aura'] [data-slot='sidebar-container'] {
+  border-color: var(--sidebar-border);
+}
+
+[data-theme-preset='aura'] [data-slot='sidebar-menu-button'] {
+  border-radius: 0.625rem;
+  gap: 0.625rem;
+  height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+}
+[data-theme-preset='aura'] [data-slot='sidebar-menu-button'] svg:not(.ms-auto) {
+  width: 17px;
+  height: 17px;
+}
+[data-theme-preset='aura'] [data-slot='sidebar-menu-button']:hover {
+  background-color: var(--accent);
+}
+[data-theme-preset='aura']
+  [data-slot='sidebar-menu-button'][data-active]:not([data-active='false']),
+[data-theme-preset='aura']
+  [data-slot='sidebar-menu-button'][data-active]:not(
+    [data-active='false']
+  ):hover {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+/* Upstream fades the group label to 70% of the muted color, which is 3.1:1 on
+ * the raised sidebar. */
+[data-theme-preset='aura'] [data-slot='sidebar-group-label'] {
+  color: var(--muted-foreground);
+}
+
 /* ── Font axis ────────────────────────────────────────────────────────────
  * Mirrors how `data-theme-radius` overrides a preset's default radius:
  * presets may set `--font-body` (Anthropic → serif), and the user's

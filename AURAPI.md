@@ -47,3 +47,4 @@ Keep this list current: add an entry in the same commit as the change.
 | --- | --- | --- |
 | Docs | Added this notice | `AURAPI.md` |
 | Theme | New `aura` color preset (warm paper canvas, soft-shadow cards, blue accent), made the default preset; other presets stay selectable | `web/src/styles/theme-presets.css`, `web/src/styles/index.css`, `web/src/lib/theme-customization.ts`, `web/src/context/theme-customization-provider.tsx`, locale files |
+| Shell | Aura shell dimensions (3.5rem header, 14rem sidebar, nav item styling) scoped to the `aura` preset; default sidebar layout variant changed from `inset` to `sidebar` | `web/src/styles/theme-presets.css`, `web/src/context/layout-provider.tsx`, `web/src/components/layout/components/header.tsx` |
