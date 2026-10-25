@@ -25,6 +25,13 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const THEME_PRESETS = [
   {
+    // aurapi house look: warm paper canvas, soft-shadow cards, one blue accent.
+    // Swatches preview the canvas → accent pair.
+    value: 'aura',
+    name: 'Aura',
+    swatches: ['#faf8f4', '#2b65cc'],
+  },
+  {
     value: 'default',
     name: 'Default',
     swatches: ['oklch(0.72 0.18 250)', 'oklch(0.7 0.12 280)'],
@@ -112,7 +119,7 @@ export type ThemeCustomization = {
 }
 
 export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
-  preset: 'default',
+  preset: 'aura',
   font: 'default',
   radius: 'default',
   scale: 'default',

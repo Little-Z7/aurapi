@@ -426,10 +426,12 @@ For commercial licensing, please contact support@quantumnous.com
  *   - `anthropic`: warm cream surfaces are a brand choice, NOT a primary-mix
  *     derivation (the Anthropic system deliberately uses warm neutrals for
  *     cards/borders rather than tinting them with the clay accent).
+ *   - `aura`: warm paper surfaces and soft lines are brand tokens, not a
+ *     primary-mix derivation; without the opt-out every surface turns blue.
  *   - `simple-large`: keeps intentionally neutral, high-contrast surfaces. */
 [data-theme-preset]:not([data-theme-preset='default']):not(
-  [data-theme-preset='anthropic']
-):not([data-theme-preset='simple-large']) {
+    [data-theme-preset='anthropic']
+  ):not([data-theme-preset='aura']):not([data-theme-preset='simple-large']) {
   --card: color-mix(in oklch, var(--primary) 3%, var(--background));
   --popover: color-mix(in oklch, var(--primary) 5%, var(--background));
   --muted: color-mix(in oklch, var(--primary) 7%, var(--background));
@@ -454,7 +456,7 @@ For commercial licensing, please contact support@quantumnous.com
 .dark
   [data-theme-preset]:not([data-theme-preset='default']):not(
     [data-theme-preset='anthropic']
-  ):not([data-theme-preset='simple-large']) {
+  ):not([data-theme-preset='aura']):not([data-theme-preset='simple-large']) {
   --card: color-mix(in oklch, var(--primary) 8%, var(--background));
   --popover: color-mix(in oklch, var(--primary) 12%, var(--background));
   --muted: color-mix(in oklch, var(--primary) 12%, var(--background));
@@ -610,6 +612,148 @@ For commercial licensing, please contact support@quantumnous.com
 
   --skeleton-base: oklch(0.305 0.004 60);
   --skeleton-highlight: oklch(0.41 0.004 60);
+}
+
+/* ── Aura ─────────────────────────────────────────────────────────────── */
+/*
+ * aurapi house look: warm paper canvas, white cards separated by soft shadows
+ * instead of outlines, one blue accent. Values are re-implemented from the
+ * Aura design-token tables (no code is shared with that project).
+ *
+ * Opted out of the semantic surface bridge (see above) for the same reason as
+ * `anthropic`: the bridge's (0,3,0) selector would otherwise tint every surface
+ * with the primary color.
+ *
+ * Contrast: the semantic colors (primary / success / warning / destructive)
+ * are used mostly as *text* on the page, card and 10%-tint chip backgrounds,
+ * so the light values are a few percent darker than the raw brand swatches to
+ * keep every one of those pairings at or above 4.5:1. In dark mode they are
+ * light colors, so their foreground (text on a solid fill) flips to near-black.
+ */
+[data-theme-preset='aura'] {
+  --background: #faf8f4;
+  --foreground: #23201b;
+  --card: #ffffff;
+  --card-foreground: #23201b;
+  --popover: #ffffff;
+  --popover-foreground: #23201b;
+
+  --primary: #2b65cc;
+  --primary-foreground: #ffffff;
+  --secondary: #f2eee6;
+  --secondary-foreground: rgb(35 32 27 / 78%);
+  --muted: #f2eee6;
+  --muted-foreground: rgb(35 32 27 / 70%);
+  --accent: rgb(43 38 30 / 5%);
+  --accent-foreground: #23201b;
+
+  --destructive: #b44338;
+  --destructive-foreground: #ffffff;
+  --success: #0b775f;
+  --success-foreground: #ffffff;
+  --warning: #86641a;
+  --warning-foreground: #ffffff;
+  --info: #2b65cc;
+  --info-foreground: #ffffff;
+  --neutral: #66615a;
+  --neutral-foreground: #ffffff;
+
+  --border: rgb(43 38 30 / 9%);
+  --input: rgb(43 38 30 / 17%);
+  --ring: rgb(47 111 224 / 35%);
+
+  --chart-1: #2b65cc;
+  --chart-2: #6d4ce8;
+  --chart-3: #0b775f;
+  --chart-4: #86641a;
+  --chart-5: #b44338;
+
+  --sidebar: #fdfcf9;
+  --sidebar-foreground: #23201b;
+  --sidebar-primary: #2b65cc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(47 111 224 / 8%);
+  --sidebar-accent-foreground: #1f5cc7;
+  --sidebar-border: rgb(43 38 30 / 7.5%);
+  --sidebar-ring: rgb(47 111 224 / 35%);
+
+  --skeleton-base: #ece7dd;
+  --skeleton-highlight: #f5f1e9;
+
+  --radius: 0.625rem;
+
+  /* Presets cannot set --font-body directly: the font axis block below always
+   * re-declares it from --font-ui-sans, so the stack is delivered through that. */
+  --font-ui-sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Segoe UI', sans-serif;
+  --font-sans: var(--font-ui-sans);
+}
+.dark [data-theme-preset='aura'] {
+  --background: #0b0b0d;
+  --foreground: #edeef1;
+  --card: #1a1a1f;
+  --card-foreground: #edeef1;
+  --popover: #1a1a1f;
+  --popover-foreground: #edeef1;
+
+  --primary: #4f8cf7;
+  --primary-foreground: #141414;
+  --secondary: #23232a;
+  --secondary-foreground: rgb(237 238 241 / 82%);
+  --muted: #23232a;
+  --muted-foreground: rgb(237 238 241 / 68%);
+  --accent: rgb(255 255 255 / 6%);
+  --accent-foreground: #edeef1;
+
+  --destructive: #e07a71;
+  --destructive-foreground: #141414;
+  --success: #4ed8b8;
+  --success-foreground: #141414;
+  --warning: #d9a94f;
+  --warning-foreground: #141414;
+  --info: #4f8cf7;
+  --info-foreground: #141414;
+  --neutral: #a3a5ad;
+  --neutral-foreground: #141414;
+
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 18%);
+  --ring: rgb(79 140 247 / 40%);
+
+  --chart-1: #4f8cf7;
+  --chart-2: #a892f5;
+  --chart-3: #4ed8b8;
+  --chart-4: #d9a94f;
+  --chart-5: #e07a71;
+
+  --sidebar: #131317;
+  --sidebar-foreground: #edeef1;
+  --sidebar-primary: #4f8cf7;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: rgb(143 188 255 / 10%);
+  --sidebar-accent-foreground: #8fbcff;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-ring: rgb(79 140 247 / 40%);
+
+  --skeleton-base: #23232a;
+  --skeleton-highlight: #32323b;
+}
+
+/* Cards are separated from the canvas by shadow, not by an outline. Card draws
+ * its edge with a ring (box-shadow), so setting box-shadow here replaces it.
+ * Only border-color and box-shadow are declared: this rule is unlayered and
+ * would otherwise defeat same-property utilities on individual cards. */
+[data-theme-preset='aura'] [data-slot='card'] {
+  border-color: transparent;
+  box-shadow:
+    0 1px 2px rgb(43 38 30 / 5%),
+    0 2px 8px rgb(43 38 30 / 4%);
+}
+.dark [data-theme-preset='aura'] [data-slot='card'] {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 30%),
+    0 2px 8px rgb(0 0 0 / 25%);
 }
 
 /* ── Font axis ────────────────────────────────────────────────────────────

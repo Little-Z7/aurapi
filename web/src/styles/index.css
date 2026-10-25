@@ -574,6 +574,21 @@ For commercial licensing, please contact support@quantumnous.com
     .dark [data-slot='card']:not([data-card-hover='false']):hover {
       box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
     }
+
+    [data-theme-preset='aura']
+      [data-slot='card']:not([data-card-hover='false']):hover {
+      box-shadow:
+        0 1px 3px rgb(43 38 30 / 6%),
+        0 4px 16px rgb(43 38 30 / 10%);
+    }
+
+    .dark
+      [data-theme-preset='aura']
+      [data-slot='card']:not([data-card-hover='false']):hover {
+      box-shadow:
+        0 1px 3px rgb(0 0 0 / 35%),
+        0 6px 20px rgb(0 0 0 / 45%);
+    }
   }
 
   button:not(:disabled):active,

@@ -58,6 +58,9 @@ function ThemeControls() {
       <button type='button' onClick={() => customization.setPreset('default')}>
         Default preset
       </button>
+      <button type='button' onClick={() => customization.setPreset('aura')}>
+        Aura preset
+      </button>
       <button
         type='button'
         onClick={() => {
@@ -125,7 +128,7 @@ describe('theme preference persistence', () => {
 
     expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
     expect(document.documentElement).toHaveClass('light')
-    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
     expect(document.body).toHaveAttribute('data-theme-font', 'system')
     expect(document.body).not.toHaveAttribute('data-theme-radius')
     expect(document.body).not.toHaveAttribute('data-theme-scale')
@@ -171,7 +174,7 @@ describe('theme preference persistence', () => {
 
     expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
     expect(document.documentElement).toHaveClass('light')
-    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
     expect(document.body).toHaveAttribute('data-theme-font', 'system')
     expect(document.body).not.toHaveAttribute('data-theme-radius')
     expect(document.body).not.toHaveAttribute('data-theme-scale')
@@ -193,7 +196,7 @@ describe('theme preference persistence', () => {
       render(<ThemeFixture />)
 
       expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
-      expect(document.body).not.toHaveAttribute('data-theme-preset')
+      expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
       expect(document.body).toHaveAttribute('data-theme-font', 'system')
       expect(document.body).not.toHaveAttribute('data-theme-radius')
       expect(document.body).not.toHaveAttribute('data-theme-scale')
@@ -209,7 +212,7 @@ describe('theme preference persistence', () => {
     render(<ThemeFixture />)
 
     expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
-    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
   })
 
   it('still applies and resets preferences when storage writes fail', async () => {
@@ -230,7 +233,7 @@ describe('theme preference persistence', () => {
     await user.click(screen.getByRole('button', { name: 'Reset' }))
 
     expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
-    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
   })
 
   it('preserves saved theme preferences during frontend cache initialization', () => {
@@ -249,6 +252,41 @@ describe('theme preference persistence', () => {
       expect(localStorage.getItem(key)).toBe(value)
     }
     expect(localStorage.getItem('stale-ui-cache')).toBeNull()
+  })
+})
+
+describe('aura default preset', () => {
+  it('applies the aura attribute on first load without writing storage', () => {
+    render(<ThemeFixture />)
+
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
+    expect(localStorage.getItem('newapi:theme:v1:preset')).toBeNull()
+  })
+
+  it('keeps the original stylesheet-less default selectable and persistent', async () => {
+    const user = userEvent.setup()
+    const first = render(<ThemeFixture />)
+
+    await user.click(screen.getByRole('button', { name: 'Default preset' }))
+
+    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(localStorage.getItem('newapi:theme:v1:preset')).toBe('default')
+
+    first.unmount()
+    render(<ThemeFixture />)
+
+    expect(document.body).not.toHaveAttribute('data-theme-preset')
+  })
+
+  it('returns to aura and clears the stored choice when aura is reselected', async () => {
+    localStorage.setItem('newapi:theme:v1:preset', 'default')
+    const user = userEvent.setup()
+    render(<ThemeFixture />)
+
+    await user.click(screen.getByRole('button', { name: 'Aura preset' }))
+
+    expect(document.body).toHaveAttribute('data-theme-preset', 'aura')
+    expect(localStorage.getItem('newapi:theme:v1:preset')).toBeNull()
   })
 })
 

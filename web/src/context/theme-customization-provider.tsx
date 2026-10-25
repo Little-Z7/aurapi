@@ -127,11 +127,11 @@ export function ThemeCustomizationProvider(props: {
 
   // Mirror state to the <body> via data-* attributes so theme-presets.css can
   // override CSS variables at the right cascade layer.
+  // The attribute is omitted only for the stylesheet-less `default` preset.
+  // The preference default may itself be a named preset (aura), which still
+  // needs its attribute for theme-presets.css to apply.
   useEffect(() => {
-    applyAttribute(
-      'data-theme-preset',
-      preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset
-    )
+    applyAttribute('data-theme-preset', preset === 'default' ? null : preset)
   }, [preset])
 
   // Resolve Auto into the preset font or the browser's sans-serif while

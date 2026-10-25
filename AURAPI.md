@@ -46,3 +46,4 @@ Keep this list current: add an entry in the same commit as the change.
 | Area | Change | Files |
 | --- | --- | --- |
 | Docs | Added this notice | `AURAPI.md` |
+| Theme | New `aura` color preset (warm paper canvas, soft-shadow cards, blue accent), made the default preset; other presets stay selectable | `web/src/styles/theme-presets.css`, `web/src/styles/index.css`, `web/src/lib/theme-customization.ts`, `web/src/context/theme-customization-provider.tsx`, locale files |
