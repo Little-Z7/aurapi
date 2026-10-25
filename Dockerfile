@@ -17,6 +17,10 @@ ENV GOEXPERIMENT=greenteagc
 
 WORKDIR /build
 
+# Optional Go module proxy for build hosts that cannot reach proxy.golang.org,
+# e.g. --build-arg GOPROXY=https://goproxy.cn,direct. Unset keeps Go's default.
+ARG GOPROXY
+
 ADD go.mod go.sum ./
 # relaykit and tokenkit are local submodules referenced via replace; their
 # go.mod files must be present for go mod download to resolve the main module graph.

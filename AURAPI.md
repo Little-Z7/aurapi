@@ -16,9 +16,10 @@ user interface.
 The complete corresponding source of every deployed aurapi build is published
 here:
 
-- Primary: `https://github.com/<org>/aurapi` (public) — placeholder, the
-  organization and repository name are not decided yet
-- Mirror: `https://gitee.com/<org>/aurapi` (public) — placeholder, same
+- Primary: https://github.com/Little-Z7/aurapi (public)
+- Mirror: https://gitee.com/tangenzhe/aurapi (public)
+
+The modified source lives on the `aurapi/main` branch.
 
 Every deployed image is built from a git tag of that repository, and the
 running instance links to that tag. If a deployed build does not match a
@@ -51,3 +52,4 @@ Keep this list current: add an entry in the same commit as the change.
 | Login | Custom OAuth provider with slug `aura` is the primary sign-in button; password sign-in collapsed behind "Administrator password sign-in"; sign-up link hidden when password registration is off (presentation only, auth flow unchanged) | `web/src/features/auth/sign-in/`, `web/src/features/auth/components/`, `web/src/features/auth/lib/aura-sign-in.ts`, locale files |
 | Attribution | Project attribution line (with link to the original project) also shown at the bottom of the sign-in and sign-up pages, at full muted-text strength, so it stays visible when the home page is replaced by custom content | `web/src/features/auth/auth-layout.tsx`, `web/src/components/layout/components/footer.tsx` |
 | Attribution | The NOTICE sentence "Frontend design and development by New API contributors." is shown verbatim (untranslated) inside the attribution line | `web/src/components/layout/components/footer.tsx` |
+| Build | Optional `GOPROXY` build argument for build hosts without access to proxy.golang.org; unset keeps the default | `Dockerfile` |
