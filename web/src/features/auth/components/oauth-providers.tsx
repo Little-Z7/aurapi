@@ -39,6 +39,8 @@ type OAuthProvidersProps = {
   onWeChatLogin?: () => void
   isWeChatLoading?: boolean
   redirectTo?: string
+  /** Custom provider slug already rendered as a primary button elsewhere. */
+  excludeCustomSlug?: string
 }
 
 type ProviderButton = {
@@ -56,6 +58,7 @@ export function OAuthProviders({
   onWeChatLogin,
   isWeChatLoading = false,
   redirectTo,
+  excludeCustomSlug,
 }: OAuthProvidersProps) {
   const { t } = useTranslation()
   const {
@@ -134,6 +137,7 @@ export function OAuthProviders({
   const customProviders = status?.custom_oauth_providers
   if (customProviders && customProviders.length > 0) {
     for (const provider of customProviders) {
+      if (provider.slug === excludeCustomSlug) continue
       providerButtons.push({
         key: `custom-${provider.slug}`,
         label: t('Continue with {{name}}', { name: provider.name }),

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from '@tanstack/react-router'
-import { Loader2, LogIn, KeyRound } from 'lucide-react'
+import { ChevronDown, Loader2, LogIn, KeyRound } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -42,9 +42,14 @@ import { Label } from '@/components/ui/label'
 import { login, wechatLoginByCode } from '@/features/auth/api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
+import { PrimaryOAuthButton } from '@/features/auth/components/primary-oauth-button'
 import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import {
+  findPrimaryOAuthProvider,
+  PRIMARY_OAUTH_SLUG,
+} from '@/features/auth/lib/aura-sign-in'
 import { beginPasskeyLogin, finishPasskeyLogin } from '@/features/auth/passkey'
 import {
   requestPasskeyAssertion,
@@ -80,6 +85,7 @@ export function UserAuthForm({
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
   const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false)
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
   const loginFailedMessage = t('Login failed')
 
@@ -91,6 +97,9 @@ export function UserAuthForm({
     (status?.password_login_enabled ??
       status?.data?.password_login_enabled ??
       true) !== false
+  const primaryProvider = findPrimaryOAuthProvider(status)
+  const passwordFormVisible =
+    passwordLoginEnabled && (!primaryProvider || passwordFormOpen)
   const passwordLoginEncryptionEnabled =
     (status?.password_login_encryption_enabled ??
       status?.data?.password_login_encryption_enabled ??
@@ -338,6 +347,7 @@ export function UserAuthForm({
         disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
         onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
         isWeChatLoading={isWeChatSubmitting}
+        excludeCustomSlug={primaryProvider ? PRIMARY_OAUTH_SLUG : undefined}
       />
     </>
   )
@@ -349,10 +359,46 @@ export function UserAuthForm({
         className={cn('grid gap-4', className)}
         {...props}
       >
+        {primaryProvider && (
+          <>
+            <PrimaryOAuthButton
+              provider={primaryProvider}
+              status={status}
+              redirectTo={redirectTo}
+              disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+            />
+            <LegalConsent
+              status={status}
+              checked={agreedToLegal}
+              onCheckedChange={setAgreedToLegal}
+            />
+          </>
+        )}
+
         {hasAlternativeLogin && alternativeLoginMethods}
 
-        {passwordLoginEnabled && (
-          <>
+        {primaryProvider && passwordLoginEnabled && (
+          <Button
+            type='button'
+            variant='ghost'
+            aria-expanded={passwordFormOpen}
+            aria-controls='password-sign-in'
+            onClick={() => setPasswordFormOpen((open) => !open)}
+            className='text-muted-foreground w-full justify-center gap-1.5'
+          >
+            {t('Administrator password sign-in')}
+            <ChevronDown
+              aria-hidden='true'
+              className={cn(
+                'size-4 transition-transform',
+                passwordFormOpen && 'rotate-180'
+              )}
+            />
+          </Button>
+        )}
+
+        {passwordFormVisible && (
+          <div id='password-sign-in' className='grid gap-4'>
             {/* Username Field */}
             <FormField
               control={form.control}
@@ -416,15 +462,17 @@ export function UserAuthForm({
                 />
               </div>
             )}
-          </>
+          </div>
         )}
 
-        <LegalConsent
-          status={status}
-          checked={agreedToLegal}
-          onCheckedChange={setAgreedToLegal}
-          className='mt-1'
-        />
+        {!primaryProvider && (
+          <LegalConsent
+            status={status}
+            checked={agreedToLegal}
+            onCheckedChange={setAgreedToLegal}
+            className='mt-1'
+          />
+        )}
 
         {!hasAlternativeLogin && alternativeLoginMethods}
       </form>
