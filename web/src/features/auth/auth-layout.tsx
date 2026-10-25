@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { ProjectAttribution } from '@/components/layout/components/footer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
@@ -57,6 +58,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 px-4 py-8 sm:w-[480px] sm:p-8'>
           {children}
         </div>
+      </div>
+      <div className='absolute inset-x-0 bottom-3 px-4'>
+        <ProjectAttribution currentYear={new Date().getFullYear()} />
       </div>
     </div>
   )
