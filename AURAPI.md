@@ -25,6 +25,10 @@ Every deployed image is built from a git tag of that repository, and the
 running instance links to that tag. If a deployed build does not match a
 published tag, that is a bug; please report it.
 
+Release tags are named `v<upstream base>-aurapi.<n>` (for example
+`v1.0.0-rc.46-aurapi.1`). The tagged commit writes the same name into
+`VERSION`, so `/api/status` reports the tag the image was built from.
+
 ## Upgrade model
 
 - `aurapi/main` is a pinned upstream release tag plus a small series of themed
@@ -53,3 +57,4 @@ Keep this list current: add an entry in the same commit as the change.
 | Attribution | Project attribution line (with link to the original project) also shown at the bottom of the sign-in and sign-up pages, at full muted-text strength, so it stays visible when the home page is replaced by custom content | `web/src/features/auth/auth-layout.tsx`, `web/src/components/layout/components/footer.tsx` |
 | Attribution | The NOTICE sentence "Frontend design and development by New API contributors." is shown verbatim (untranslated) inside the attribution line | `web/src/components/layout/components/footer.tsx` |
 | Build | Optional `GOPROXY` build argument for build hosts without access to proxy.golang.org; unset keeps the default | `Dockerfile` |
+| Release | `VERSION` holds the release tag in the repository (upstream fills it in CI), because the deploy host builds straight from the tagged source | `VERSION` |
