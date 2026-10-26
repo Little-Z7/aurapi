@@ -152,6 +152,24 @@ it('shows nested task conditions and prices in detail and group tables without a
   expect(screen.queryByText('Matched')).not.toBeInTheDocument()
 })
 
+it('shows request-parameter image prices as a tier table instead of the raw expression', () => {
+  const expression =
+    '(param("quality") == "low" ? tier("low", fixed(0.018)) : (param("quality") == "high" ? tier("high", fixed(0.608)) : tier("medium", fixed(0.154)))) * image_count'
+  render(
+    <DynamicPricingBreakdown billingExpr={expression} matchedTierLabel='high' />
+  )
+  expect(
+    screen.queryByText('Special billing expression')
+  ).not.toBeInTheDocument()
+  expect(screen.queryByText(expression)).not.toBeInTheDocument()
+  expect(screen.getByText('Price per image')).toBeVisible()
+  const high = screen.getByText('high').closest('tr')
+  expect(high).not.toBeNull()
+  expect(within(high as HTMLElement).getByText('Matched')).toBeVisible()
+  const medium = screen.getByText('medium').closest('tr')
+  expect(within(medium as HTMLElement).getByText('Default tier')).toBeVisible()
+})
+
 it('explains missing task metadata while retaining the original expression', () => {
   const expression = 'tier("base", u("seconds") * 0.09)'
   render(<DynamicPricingBreakdown billingExpr={expression} />)

@@ -22,6 +22,10 @@ export const STATIC_I18N_KEYS = [
   'Task usage metadata is unavailable. Pricing details cannot be displayed.',
   'This expression cannot be expanded into a price table. View the original expression below.',
   'This operation is only supported for vLLM or SGLang channels',
+  // Parameter tier labels on image price tables.
+  'Text to image',
+  'Image to image',
+  'Reference image count',
   'Invalid inference server address',
   'Channel type does not match the status endpoint',
   'SGLang channel base URL cannot be empty',

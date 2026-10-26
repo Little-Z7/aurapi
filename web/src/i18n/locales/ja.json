@@ -7339,6 +7339,16 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Text to image": "テキストから画像",
+    "Image to image": "画像から画像",
+    "Reference image count": "参照画像の枚数",
+    "{{count}} reference images": "参照画像 {{count}} 枚",
+    "Price depends on request parameters: {{params}}": "価格はリクエストパラメーターによって変わります：{{params}}",
+    "Requests without these parameters use the default tier.": "これらのパラメーターがない場合はデフォルトの段階で課金されます。",
+    "Default tier": "デフォルト段階",
+    "Reference images": "参照画像",
+    "+{{price}} each": "1 枚ごとに +{{price}}",
+    "up to {{count}}": "最大 {{count}} 枚"
   }
 }

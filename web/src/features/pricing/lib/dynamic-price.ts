@@ -37,6 +37,10 @@ import {
 } from './billing-expr'
 import { compileBillingExpression } from './billing-expression/parser'
 import { getDisplayGroupRatio } from './model-helpers'
+import {
+  readParamTierPricing,
+  type ParamTierPricing,
+} from './param-tier-pricing'
 import { withPluginPricing } from './plugin-pricing'
 import {
   evaluateTaskVisualConfig,
@@ -99,6 +103,8 @@ export type DynamicPricingSummary = {
   isMixedBilling?: boolean
   providerCount?: number
   hasUnconfiguredProviders?: boolean
+  /** Per-call prices chosen by request parameters; replaces the special-expression fallback. */
+  paramTiers?: ParamTierPricing & { formattedDefault?: string }
 }
 
 export function getTaskUsageQuantityUnitLabelKey(
@@ -500,6 +506,49 @@ export function getDynamicPricingSummary(
   const baseExpression = splitBillingExprAndRequestRules(
     model.billing_expr || ''
   ).billingExpr
+  const paramTiers =
+    !isTaskUsage && tiers.length === 0
+      ? readParamTierPricing(baseExpression)
+      : null
+  if (paramTiers) {
+    const formattedMin = formatTaskUsageUnitPrice(paramTiers.minPrice, options)
+    const formattedMax = formatTaskUsageUnitPrice(paramTiers.maxPrice, options)
+    const entry: DynamicPriceEntry = {
+      key: 'fixed',
+      field: 'fixedPrice',
+      label: paramTiers.perImage ? 'Price per image' : 'Price per request',
+      shortLabel: paramTiers.perImage ? 'Per image' : 'Per-call',
+      labelKind: 'i18n',
+      value: paramTiers.minPrice,
+      minValue: paramTiers.minPrice,
+      maxValue: paramTiers.maxPrice,
+      formatted: formattedMin,
+      formattedRange:
+        paramTiers.minPrice === paramTiers.maxPrice
+          ? undefined
+          : `${formattedMin} – ${formattedMax}`,
+      unit: paramTiers.perImage ? 'image' : 'request',
+    }
+    return {
+      tiers: [],
+      tier: null,
+      tierCount: paramTiers.rows.length,
+      hasRequestRules: hasDynamicRequestRules(model),
+      isSpecialExpression: false,
+      rawExpression: model.billing_expr || '',
+      entries: [entry],
+      primaryEntries: [entry],
+      secondaryEntries: [],
+      isTaskUsage: false,
+      paramTiers: {
+        ...paramTiers,
+        formattedDefault:
+          paramTiers.defaultPrice === undefined
+            ? undefined
+            : formatTaskUsageUnitPrice(paramTiers.defaultPrice, options),
+      },
+    }
+  }
   const timeTiers = isTaskUsage
     ? null
     : getCurrentTimePricingTiers(baseExpression, options.now ?? new Date())

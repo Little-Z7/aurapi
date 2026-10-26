@@ -53,6 +53,7 @@ import {
   type DynamicPriceLabelKind,
   type DynamicPriceOptions,
 } from '../lib/dynamic-price'
+import { readParamTierPricing } from '../lib/param-tier-pricing'
 import { getTaskPricingDisplayTiers } from '../lib/task-matrix-display'
 import {
   taskPriceLabel,
@@ -61,6 +62,7 @@ import {
   pricingDisplayFallbackKey,
 } from '../lib/task-price-display'
 import type { BillingUsageSchema, BillingUsageUnit } from '../types'
+import { ParamTierTable } from './param-tier-table'
 
 type DynamicPricingBreakdownProps = {
   billingExpr: string | null | undefined
@@ -308,7 +310,7 @@ export function DynamicPricingBreakdown({
     return { symbol: '$', rate: 1 }
   }, [currency])
 
-  const { tiers, ruleGroups } = useMemo(() => {
+  const { tiers, ruleGroups, paramTiers } = useMemo(() => {
     const split = splitBillingExprAndRequestRules(expr)
     const parsedTiers = usageSchema
       ? getTaskPricingDisplayTiers(split.billingExpr, usageSchema)
@@ -332,6 +334,10 @@ export function DynamicPricingBreakdown({
     return {
       tiers: parsedTiers,
       ruleGroups: parsedRules || [],
+      paramTiers:
+        parsedTiers.length === 0 && !usageSchema
+          ? readParamTierPricing(split.billingExpr)
+          : null,
     }
   }, [expr, usageSchema, requestRules])
 
@@ -339,6 +345,34 @@ export function DynamicPricingBreakdown({
   const hasRules = ruleGroups.length > 0
 
   if (!expr) return null
+
+  if (!hasTiers && !hasRules && paramTiers) {
+    return (
+      <section className={cn('min-w-0', !compact && 'py-4')}>
+        {!compact && (
+          <div className='mb-3 flex items-center gap-2'>
+            <span className='inline-flex size-6 items-center justify-center rounded-lg bg-amber-100 text-amber-700 shadow-sm dark:bg-amber-500/20 dark:text-amber-300'>
+              <TagIcon className='size-3.5' />
+            </span>
+            <div className='text-foreground text-base font-medium'>
+              {t('Tiered price table')}
+            </div>
+          </div>
+        )}
+        <ParamTierTable
+          pricing={paramTiers}
+          matchedTierLabel={matchedTierLabel}
+          compact={compact}
+          formatPrice={(usd) =>
+            formatTaskUsageUnitPrice(usd, {
+              tokenUnit: 'M',
+              ...taskPriceOptions,
+            })
+          }
+        />
+      </section>
+    )
+  }
 
   if (!hasTiers) {
     return (

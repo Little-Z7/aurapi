@@ -7339,6 +7339,16 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Text to image": "文生图",
+    "Image to image": "图生图",
+    "Reference image count": "参考图张数",
+    "{{count}} reference images": "{{count}} 张参考图",
+    "Price depends on request parameters: {{params}}": "价格随请求参数变化：{{params}}",
+    "Requests without these parameters use the default tier.": "未传这些参数时按默认档计费。",
+    "Default tier": "默认档",
+    "Reference images": "参考图",
+    "+{{price}} each": "每张 +{{price}}",
+    "up to {{count}}": "最多 {{count}} 张"
   }
 }

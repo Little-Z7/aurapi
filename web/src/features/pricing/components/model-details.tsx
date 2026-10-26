@@ -64,7 +64,10 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { useBillingTime } from '../hooks/use-billing-time'
 import { usePricingData } from '../hooks/use-pricing-data'
-import type { ParsedTaskTier } from '../lib/billing-expr'
+import {
+  splitBillingExprAndRequestRules,
+  type ParsedTaskTier,
+} from '../lib/billing-expr'
 import { formatBillingCondition } from '../lib/billing-expression/condition-display'
 import {
   formatTaskUsageUnitPrice,
@@ -79,6 +82,7 @@ import {
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
+import { readParamTierPricing } from '../lib/param-tier-pricing'
 import { withPluginPricing } from '../lib/plugin-pricing'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import {
@@ -796,6 +800,17 @@ function PriceSection(props: {
               : t('Dynamic Pricing')}
           </p>
         )}
+        {dynamicSummary.paramTiers && (
+          <p className='text-muted-foreground mt-2 text-xs'>
+            {[
+              dynamicSummary.paramTiers.formattedDefault &&
+                `${t('Default')} ${dynamicSummary.paramTiers.formattedDefault}`,
+              t('{{count}} tiers', { count: dynamicSummary.tierCount }),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
         {dynamicSummary.secondaryEntries.length > 0 && (
           <div className='bg-muted/20 mt-3 rounded-lg border px-3 py-2.5'>
             <div className='space-y-1.5'>
@@ -1119,6 +1134,69 @@ function ProviderGroupPricingSection(
     const hasRequestPrice = dynamicTiers.some(
       (tier) => !('unitPrices' in tier) && tier.billingUnit === 'request'
     )
+    const paramTiers =
+      dynamicTiers.length === 0 && !props.model.billing_usage_schema
+        ? readParamTierPricing(
+            splitBillingExprAndRequestRules(props.model.billing_expr || '')
+              .billingExpr
+          )
+        : null
+
+    if (paramTiers) {
+      const unitLabel = t(paramTiers.perImage ? 'image' : 'request')
+      return (
+        <section>
+          {!props.hideTitle && (
+            <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+          )}
+          <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
+          <div className='space-y-2'>
+            {availableGroups.map((group) => {
+              const ratio = props.groupRatio[group] || 1
+              const formatGroupTierPrice = (usd: number) =>
+                formatTaskUsageUnitPrice(usd, {
+                  tokenUnit: props.tokenUnit,
+                  showRechargePrice,
+                  priceRate: props.priceRate,
+                  usdExchangeRate: props.usdExchangeRate,
+                  groupRatioMultiplier: ratio,
+                })
+              const range =
+                paramTiers.minPrice === paramTiers.maxPrice
+                  ? formatGroupTierPrice(paramTiers.minPrice)
+                  : `${formatGroupTierPrice(paramTiers.minPrice)} – ${formatGroupTierPrice(paramTiers.maxPrice)}`
+              return (
+                <div
+                  key={group}
+                  className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border px-3 py-2'
+                >
+                  <span className='flex items-center gap-2'>
+                    <GroupBadge group={group} size='sm' />
+                    <span className='text-muted-foreground font-mono text-xs'>
+                      {ratio}x
+                    </span>
+                  </span>
+                  <span className='font-mono text-sm tabular-nums'>
+                    {paramTiers.defaultPrice !== undefined && (
+                      <span className='text-muted-foreground mr-2 font-sans text-xs'>
+                        {t('Default')}{' '}
+                        <span className='text-foreground font-mono'>
+                          {formatGroupTierPrice(paramTiers.defaultPrice)}
+                        </span>
+                      </span>
+                    )}
+                    {range}
+                    <span className='text-muted-foreground/60 ml-1 text-xs'>
+                      / {unitLabel}
+                    </span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )
+    }
 
     if (dynamicTiers.length === 0) {
       return (

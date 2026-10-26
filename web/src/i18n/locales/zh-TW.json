@@ -7339,6 +7339,16 @@
     "Zhipu": "智譜",
     "Zhipu GLM": "智譜GLM",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Text to image": "文生圖",
+    "Image to image": "圖生圖",
+    "Reference image count": "參考圖張數",
+    "{{count}} reference images": "{{count}} 張參考圖",
+    "Price depends on request parameters: {{params}}": "價格隨請求參數變化：{{params}}",
+    "Requests without these parameters use the default tier.": "未傳這些參數時按預設檔計費。",
+    "Default tier": "預設檔",
+    "Reference images": "參考圖",
+    "+{{price}} each": "每張 +{{price}}",
+    "up to {{count}}": "最多 {{count}} 張"
   }
 }

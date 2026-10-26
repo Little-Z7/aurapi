@@ -7339,6 +7339,16 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Text to image": "Texte vers image",
+    "Image to image": "Image vers image",
+    "Reference image count": "Nombre d'images de référence",
+    "{{count}} reference images": "{{count}} images de référence",
+    "Price depends on request parameters: {{params}}": "Le prix dépend des paramètres de la requête : {{params}}",
+    "Requests without these parameters use the default tier.": "Les requêtes sans ces paramètres utilisent le palier par défaut.",
+    "Default tier": "Palier par défaut",
+    "Reference images": "Images de référence",
+    "+{{price}} each": "+{{price}} chacune",
+    "up to {{count}}": "jusqu'à {{count}}"
   }
 }

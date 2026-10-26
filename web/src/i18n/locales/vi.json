@@ -7339,6 +7339,16 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Text to image": "Văn bản thành ảnh",
+    "Image to image": "Ảnh thành ảnh",
+    "Reference image count": "Số ảnh tham chiếu",
+    "{{count}} reference images": "{{count}} ảnh tham chiếu",
+    "Price depends on request parameters: {{params}}": "Giá phụ thuộc vào tham số yêu cầu: {{params}}",
+    "Requests without these parameters use the default tier.": "Yêu cầu không có các tham số này dùng bậc mặc định.",
+    "Default tier": "Bậc mặc định",
+    "Reference images": "Ảnh tham chiếu",
+    "+{{price}} each": "+{{price}} mỗi ảnh",
+    "up to {{count}}": "tối đa {{count}}"
   }
 }

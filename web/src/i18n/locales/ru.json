@@ -7339,6 +7339,16 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Text to image": "Текст в изображение",
+    "Image to image": "Изображение в изображение",
+    "Reference image count": "Количество референсных изображений",
+    "{{count}} reference images": "Референсных изображений: {{count}}",
+    "Price depends on request parameters: {{params}}": "Цена зависит от параметров запроса: {{params}}",
+    "Requests without these parameters use the default tier.": "Запросы без этих параметров тарифицируются по уровню по умолчанию.",
+    "Default tier": "Уровень по умолчанию",
+    "Reference images": "Референсные изображения",
+    "+{{price}} each": "+{{price}} за каждое",
+    "up to {{count}}": "до {{count}}"
   }
 }

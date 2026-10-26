@@ -52,6 +52,8 @@ const PRECEDENCE: Readonly<Record<string, number>> = {
   '*': 6,
   '/': 6,
   '%': 6,
+  // Expr's nil coalescing binds tighter than every other binary operator.
+  '??': 7,
 }
 
 class BillingParser {
@@ -184,7 +186,9 @@ class BillingParser {
       this.cursor += name[0].length
       return { kind: 'name', text: name[0], start, end: this.cursor }
     }
-    const operator = rest.match(/^(?:&&|\|\||==|!=|<=|>=|[+\-*/%<>()!?:,])/)
+    const operator = rest.match(
+      /^(?:&&|\|\||\?\?|==|!=|<=|>=|[+\-*/%<>()!?:,])/
+    )
     if (!operator) {
       throw new BillingExpressionError({
         code: 'unsupported',
@@ -386,6 +390,10 @@ function checkExpressionTypes(ast: ExpressionNode): void {
         result = 'boolean'
       } else if (['==', '!=', '<', '<=', '>', '>='].includes(node.operator)) {
         result = 'boolean'
+      } else if (node.operator === '??') {
+        const left = types.get(node.left)
+        if (left === 'nil') result = types.get(node.right) ?? 'dynamic'
+        else if (left === types.get(node.right)) result = left ?? 'dynamic'
       } else if (
         node.operator === '+' &&
         types.get(node.left) === 'string' &&

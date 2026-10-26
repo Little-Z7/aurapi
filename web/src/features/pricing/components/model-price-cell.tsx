@@ -167,6 +167,9 @@ export function ModelPriceCell(props: {
     if (dynamic.tierCount > 1) {
       caption += ` · ${t('{{count}} tiers', { count: dynamic.tierCount })}`
     }
+    if (dynamic.paramTiers?.formattedDefault) {
+      caption += ` · ${t('Default')} ${dynamic.paramTiers.formattedDefault}`
+    }
   } else {
     if (isUnconfiguredTaskUsageModel(props.model)) {
       return (

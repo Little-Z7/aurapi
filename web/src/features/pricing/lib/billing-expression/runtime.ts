@@ -343,6 +343,12 @@ class BillingRuntime {
     if (node.operator === '||') {
       return { value: this.boolean(node.left) || this.boolean(node.right) }
     }
+    if (node.operator === '??') {
+      const left = this.evaluate(node.left)
+      return left.value === null || left.value === undefined
+        ? this.evaluate(node.right)
+        : left
+    }
     const left = this.evaluate(node.left)
     const right = this.evaluate(node.right)
     const a = left.value

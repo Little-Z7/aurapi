@@ -186,6 +186,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
               {t('Token or per-call pricing')}
             </span>
           )}
+          {dynamicSummary.paramTiers && (
+            <span className='text-muted-foreground col-span-full text-xs break-words'>
+              {[
+                dynamicSummary.paramTiers.formattedDefault &&
+                  `${t('Default')} ${dynamicSummary.paramTiers.formattedDefault}`,
+                t('{{count}} tiers', { count: dynamicSummary.tierCount }),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
           {cardExamplePrice && (
             <span className='text-muted-foreground col-span-full text-xs break-words'>
               {cardExamplePrice.label} ≈ {cardExamplePrice.formatted}
