@@ -7344,11 +7344,15 @@
     "Image to image": "Изображение в изображение",
     "Reference image count": "Количество референсных изображений",
     "{{count}} reference images": "Референсных изображений: {{count}}",
-    "Price depends on request parameters: {{params}}": "Цена зависит от параметров запроса: {{params}}",
+    "Price depends on request parameters: {{params}}.": "Цена зависит от параметров запроса: {{params}}.",
     "Requests without these parameters use the default tier.": "Запросы без этих параметров тарифицируются по уровню по умолчанию.",
     "Default tier": "Уровень по умолчанию",
     "Reference images": "Референсные изображения",
     "+{{price}} each": "+{{price}} за каждое",
-    "up to {{count}}": "до {{count}}"
+    "up to {{count}}": "до {{count}}",
+    "Quality": "Качество",
+    "Resolution": "Разрешение",
+    "Size": "Размер",
+    "Aspect ratio": "Соотношение сторон"
   }
 }

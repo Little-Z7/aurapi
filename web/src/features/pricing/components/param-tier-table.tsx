@@ -32,6 +32,10 @@ const LABEL_PART_KEYS: Record<string, string> = {
 }
 
 const PARAM_KEYS: Record<string, string> = {
+  quality: 'Quality',
+  resolution: 'Resolution',
+  size: 'Size',
+  aspect_ratio: 'Aspect ratio',
   input_reference_count: 'Reference image count',
 }
 
@@ -58,7 +62,7 @@ export function ParamTierTable(props: {
   return (
     <div className='min-w-0 space-y-2'>
       <p className='text-muted-foreground text-xs'>
-        {t('Price depends on request parameters: {{params}}', {
+        {t('Price depends on request parameters: {{params}}.', {
           params: props.pricing.params
             .map((param) => (PARAM_KEYS[param] ? t(PARAM_KEYS[param]) : param))
             .join(', '),

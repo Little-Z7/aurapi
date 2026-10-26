@@ -163,6 +163,9 @@ it('shows request-parameter image prices as a tier table instead of the raw expr
   ).not.toBeInTheDocument()
   expect(screen.queryByText(expression)).not.toBeInTheDocument()
   expect(screen.getByText('Price per image')).toBeVisible()
+  expect(
+    screen.getByText(/Price depends on request parameters: Quality\./)
+  ).toBeVisible()
   const high = screen.getByText('high').closest('tr')
   expect(high).not.toBeNull()
   expect(within(high as HTMLElement).getByText('Matched')).toBeVisible()

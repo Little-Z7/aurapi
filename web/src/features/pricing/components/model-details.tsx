@@ -1177,18 +1177,18 @@ function ProviderGroupPricingSection(
                     </span>
                   </span>
                   <span className='font-mono text-sm tabular-nums'>
+                    {range}
+                    <span className='text-muted-foreground/60 ml-1 text-xs'>
+                      / {unitLabel}
+                    </span>
                     {paramTiers.defaultPrice !== undefined && (
-                      <span className='text-muted-foreground mr-2 font-sans text-xs'>
-                        {t('Default')}{' '}
+                      <span className='text-muted-foreground ml-2 font-sans text-xs'>
+                        · {t('Default')}{' '}
                         <span className='text-foreground font-mono'>
                           {formatGroupTierPrice(paramTiers.defaultPrice)}
                         </span>
                       </span>
                     )}
-                    {range}
-                    <span className='text-muted-foreground/60 ml-1 text-xs'>
-                      / {unitLabel}
-                    </span>
                   </span>
                 </div>
               )

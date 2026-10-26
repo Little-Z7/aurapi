@@ -158,7 +158,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                   key={entry.key}
                   className={cn(
                     'flex min-w-0 flex-col gap-1',
-                    dynamicSummary.isTaskUsage && 'col-span-full'
+                    (dynamicSummary.isTaskUsage || dynamicSummary.paramTiers) &&
+                      'col-span-full'
                   )}
                 >
                   {label && (
