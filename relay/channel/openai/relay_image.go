@@ -44,7 +44,7 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	info.UpdateImageCount(openaiImageResponseCount(responseBody))
 
 	// 写入新的 response body
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.IOCopyBytesGracefully(c, resp, stripUpstreamCostFields(responseBody))
 
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
@@ -164,7 +164,7 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 				completedImages++
 			}
 		}
-		if err := writeOpenaiImageStreamChunk(c, raw); err != nil {
+		if err := writeOpenaiImageStreamChunk(c, stripUpstreamCostFields(raw)); err != nil {
 			sr.Stop(err)
 		}
 	})
@@ -319,6 +319,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 			if err != nil {
 				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			}
+			payload = stripUpstreamCostFields(payload)
 		}
 		// b64_json goes last: every sjson.Set* reallocates the whole payload,
 		// so inserting the large blob after all small fields avoids re-copying

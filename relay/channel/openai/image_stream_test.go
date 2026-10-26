@@ -10,11 +10,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,6 +81,65 @@ func TestImageExpressionUsesCompletedCountAndProtectsAbortedStreams(t *testing.T
 			}
 			assert.Equal(t, tc.want, count)
 			assert.Empty(t, info.PriceData.OtherRatios(), "expression quantities must not add a legacy multiplier")
+		})
+	}
+}
+
+// OpenRouter reports its upstream USD cost in usage; billing must still see it
+// while the client never does, on every chat, Responses and image path.
+func TestHandlersDoNotForwardUpstreamCost(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	const costFields = `"cost":0.005945,"is_byok":false,"cost_details":{"upstream_inference_cost":0.005945}`
+	const chatUsage = `{"prompt_tokens":13,"completion_tokens":196,"total_tokens":209,` + costFields + `}`
+	const responsesUsage = `{"input_tokens":13,"output_tokens":196,"total_tokens":209,` + costFields + `}`
+	const chatChunk = `{"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"hi"}}]}`
+	const chatLastChunk = `{"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":` + chatUsage + `}`
+	type handler func(*gin.Context, *relaycommon.RelayInfo, *http.Response) (*dto.Usage, *types.NewAPIError)
+	for _, tc := range []struct {
+		name, body, contentType string
+		stream, forceFormat     bool
+		handler                 handler
+		billsCost               bool
+		relayFormat             types.RelayFormat
+	}{
+		{"image JSON", `{"created":1,"data":[{"b64_json":"image"}],"usage":` + chatUsage + `}`, "application/json", false, false, OpenaiImageHandler, false, ""},
+		{"image SSE", "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"image\",\"usage\":" + chatUsage + "}\n\ndata: [DONE]\n\n", "text/event-stream", true, false, OpenaiImageStreamHandler, false, ""},
+		{"image JSON as SSE", `{"created":1,"data":[{"b64_json":"image"}],"usage":` + chatUsage + `}`, "application/json", true, false, OpenaiImageStreamHandler, false, ""},
+		{"chat", `{"id":"c1","object":"chat.completion","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":` + chatUsage + `}`, "application/json", false, false, OpenaiHandler, true, ""},
+		{"chat force format", `{"id":"c1","object":"chat.completion","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":` + chatUsage + `}`, "application/json", false, true, OpenaiHandler, true, ""},
+		{"chat stream", "data: " + chatChunk + "\n\ndata: " + chatLastChunk + "\n\ndata: [DONE]\n\n", "text/event-stream", true, false, OaiStreamHandler, true, ""},
+		{"chat stream force format", "data: " + chatChunk + "\n\ndata: " + chatLastChunk + "\n\ndata: [DONE]\n\n", "text/event-stream", true, true, OaiStreamHandler, true, ""},
+		{"responses", `{"id":"r1","object":"response","status":"completed","output":[],"usage":` + responsesUsage + `}`, "application/json", false, false, OaiResponsesHandler, false, ""},
+		{"responses stream", "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"r1\",\"status\":\"completed\",\"output\":[],\"usage\":" + responsesUsage + "}}\n\ndata: [DONE]\n\n", "text/event-stream", true, false, OaiResponsesStreamHandler, false, ""},
+		{"responses as chat", `{"id":"r1","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":` + responsesUsage + `}`, "application/json", false, false, OaiResponsesToChatHandler, false, ""},
+		{"chat as responses", `{"id":"c1","object":"chat.completion","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":` + chatUsage + `}`, "application/json", false, false, OaiChatToResponsesHandler, false, types.RelayFormatOpenAIResponses},
+		{"responses stream as chat", "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"r1\",\"status\":\"completed\",\"output\":[],\"usage\":" + responsesUsage + "}}\n\ndata: [DONE]\n\n", "text/event-stream", true, false, OaiResponsesToChatStreamHandler, false, ""},
+		{"chat stream as responses", "data: " + chatChunk + "\n\ndata: " + chatLastChunk + "\n\ndata: [DONE]\n\n", "text/event-stream", true, false, OaiChatToResponsesStreamHandler, false, types.RelayFormatOpenAIResponses},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, recorder, resp, info := newImageTestContext(t, tc.body, tc.contentType, tc.stream)
+			c.Set(common.RequestIdKey, "strip-test")
+			info.DisablePing = true
+			info.RelayFormat = types.RelayFormatOpenAI
+			if tc.relayFormat != "" {
+				info.RelayFormat = tc.relayFormat
+			}
+			info.RelayMode = relayconstant.RelayModeChatCompletions
+			info.ShouldIncludeUsage = true
+			info.ChannelSetting.ForceFormat = tc.forceFormat
+			usage, apiErr := tc.handler(c, info, resp)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage)
+			assert.Equal(t, 196, usage.CompletionTokens)
+			if tc.billsCost {
+				assert.Equal(t, 0.005945, usage.Cost)
+			}
+			forwarded := recorder.Body.String()
+			assert.Contains(t, forwarded, "196")
+			assert.NotContains(t, forwarded, "cost")
+			assert.NotContains(t, forwarded, "is_byok")
 		})
 	}
 }

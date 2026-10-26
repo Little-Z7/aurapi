@@ -51,7 +51,7 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
 
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.IOCopyBytesGracefully(c, resp, stripUpstreamCostFields(responseBody))
 	return usage, nil
 }
 
@@ -143,7 +143,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
 
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.IOCopyBytesGracefully(c, resp, stripUpstreamCostFields(responseBody))
 	return usage, nil
 }
 
@@ -228,7 +228,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			if len(value.Choices) == 0 && value.Usage == nil {
 				return true
 			}
-			if err := helper.ObjectData(c, &value); err != nil {
+			if err := objectDataWithoutUpstreamCost(c, &value); err != nil {
 				return writeFailed(err)
 			}
 			return true
@@ -236,7 +236,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			if value == nil || (len(value.Choices) == 0 && value.Usage == nil) {
 				return true
 			}
-			if err := helper.ObjectData(c, value); err != nil {
+			if err := objectDataWithoutUpstreamCost(c, value); err != nil {
 				return writeFailed(err)
 			}
 			return true
@@ -373,7 +373,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		}
 	}
 	if info.RelayFormat == types.RelayFormatOpenAI && info.ShouldIncludeUsage && usage != nil {
-		if err := helper.ObjectData(c, helper.GenerateFinalUsageResponse(responseId, createAt, info.UpstreamModelName, *usage)); err != nil {
+		if err := objectDataWithoutUpstreamCost(c, helper.GenerateFinalUsageResponse(responseId, createAt, info.UpstreamModelName, *usage)); err != nil {
 			writeFailed(err)
 			if streamErr != nil {
 				return nil, streamErr

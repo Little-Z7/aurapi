@@ -18,7 +18,42 @@ import (
 	"github.com/QuantumNous/new-api/tokenkit"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
+
+// upstreamCostFields are aggregator billing disclosures: OpenRouter reports
+// its upstream USD cost on every response. Forwarding them would let a client
+// derive the platform markup, so they never leave the gateway. dto.Usage keeps
+// Cost for OpenRouter cache billing, so typed responses carry it as well and
+// are stripped after marshaling; converted responses also nest it in the
+// internal billing_usage snapshot. Billing reads usage before the strip.
+var upstreamCostFields = []string{
+	"usage.cost", "usage.cost_details", "usage.is_byok", "usage.billing_usage",
+	"response.usage.cost", "response.usage.cost_details", "response.usage.is_byok", "response.usage.billing_usage",
+}
+
+func stripUpstreamCostFields(body []byte) []byte {
+	for _, path := range upstreamCostFields {
+		if !gjson.GetBytes(body, path).Exists() {
+			continue
+		}
+		if stripped, err := sjson.DeleteBytes(body, path); err == nil {
+			body = stripped
+		}
+	}
+	return body
+}
+
+// objectDataWithoutUpstreamCost writes a typed stream chunk the way
+// helper.ObjectData does, minus the upstream cost fields.
+func objectDataWithoutUpstreamCost(c *gin.Context, object any) error {
+	data, err := common.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("error marshalling object: %w", err)
+	}
+	return helper.StringData(c, string(stripUpstreamCostFields(data)))
+}
 
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	if data == "" {
@@ -26,7 +61,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	}
 
 	if !forceFormat && !thinkToContent {
-		return helper.StringData(c, data)
+		return helper.StringData(c, string(stripUpstreamCostFields([]byte(data))))
 	}
 
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
@@ -35,7 +70,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	}
 
 	if !thinkToContent {
-		return helper.ObjectData(c, lastStreamResponse)
+		return objectDataWithoutUpstreamCost(c, lastStreamResponse)
 	}
 
 	hasThinkingContent := false
@@ -63,12 +98,12 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 			}
 			info.ThinkingContentInfo.IsFirstThinkingContent = false
 			info.ThinkingContentInfo.HasSentThinkingContent = true
-			return helper.ObjectData(c, response)
+			return objectDataWithoutUpstreamCost(c, response)
 		}
 	}
 
 	if lastStreamResponse.Choices == nil || len(lastStreamResponse.Choices) == 0 {
-		return helper.ObjectData(c, lastStreamResponse)
+		return objectDataWithoutUpstreamCost(c, lastStreamResponse)
 	}
 
 	// Process each choice
@@ -83,7 +118,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 				response.Choices[j].Delta.Reasoning = nil
 			}
 			info.ThinkingContentInfo.SendLastThinkingContent = true
-			helper.ObjectData(c, response)
+			objectDataWithoutUpstreamCost(c, response)
 		}
 
 		// Convert reasoning content to regular content if any
@@ -98,7 +133,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		}
 	}
 
-	return helper.ObjectData(c, lastStreamResponse)
+	return objectDataWithoutUpstreamCost(c, lastStreamResponse)
 }
 
 func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -365,7 +400,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		responseBody = geminiRespStr
 	}
 
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.IOCopyBytesGracefully(c, resp, stripUpstreamCostFields(responseBody))
 
 	return &simpleResponse.Usage, nil
 }
