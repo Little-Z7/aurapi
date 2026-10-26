@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"io/fs"
 	"strings"
 	"testing"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "maitoken", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
+var expectedKeys = []string{"alibaba", "aura", "doubao", "google", "hailuo", "jimeng", "kling", "maitoken", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
 
 func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -282,6 +283,154 @@ func TestMaiTokenPluginBuildsPerModelBodiesAndRejectsChargedMistakes(t *testing.
 		})
 	}
 }
+
+func TestAuraPluginSubmitsSuperChannelTasksAndServesFreshLinks(t *testing.T) {
+	generation := jsplugin.DefaultRegistry.Generation()
+	require.NotNil(t, generation)
+	plugin, found := generation.Get("aura")
+	require.True(t, found)
+
+	const base = "https://auraaigc.ccwu.cc:8603"
+	call := func(ctx context.Context, hook string, args ...any) (map[string]any, error) {
+		value, err := plugin.Engine.Call(ctx, hook, args...)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := common.Marshal(value)
+		require.NoError(t, err)
+		var decoded map[string]any
+		require.NoError(t, common.Unmarshal(encoded, &decoded))
+		return decoded, nil
+	}
+	ctxFor := func(model string, body map[string]any) map[string]any {
+		return map[string]any{"baseUrl": base, "apiKey": "key", "model": model, "upstreamModel": model, "publicTaskId": "task_public", "requestBody": body}
+	}
+
+	cases := []struct {
+		name      string
+		model     string
+		body      map[string]any
+		wantBody  map[string]any
+		wantUsage map[string]any
+	}{
+		{
+			name:  "seedance 2.0 native 4k silent",
+			model: "doubao-seedance-2-0-260128",
+			body:  map[string]any{"prompt": "a cat", "seconds": 8, "metadata": map[string]any{"resolution": "native4k", "ratio": "9:16", "generate_audio": false}},
+			wantBody: map[string]any{
+				"model": "seedance-2-global", "channel": "super", "prompt": "a cat", "duration": "8s", "resolution": "原生4K",
+				"ratio": "9:16", "generate_audio": false, "retry_policy": nil,
+			},
+			wantUsage: map[string]any{"seconds": float64(8), "resolution": "native4k"},
+		},
+		{
+			name:      "seedance 2.5 bills a 4 second video as 5 seconds",
+			model:     "doubao-seedance-2-5-260628",
+			body:      map[string]any{"prompt": "a cat", "duration": 4},
+			wantBody:  map[string]any{"model": "seedance-2-5-global", "channel": "super", "prompt": "a cat", "duration": "4s", "resolution": "720P", "retry_policy": nil},
+			wantUsage: map[string]any{"seconds": float64(5), "resolution": "720p"},
+		},
+		{
+			name:      "mini size maps to the upscaled 4k tier",
+			model:     "doubao-seedance-2-0-mini-260615",
+			body:      map[string]any{"prompt": "a cat", "size": "3840x2160"},
+			wantBody:  map[string]any{"model": "seedance-2-mini", "channel": "super", "prompt": "a cat", "duration": "5s", "resolution": "4K", "retry_policy": nil},
+			wantUsage: map[string]any{"seconds": float64(5), "resolution": "4k"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			submit, err := call(t.Context(), "buildSubmitRequest", ctxFor(tc.model, tc.body))
+			require.NoError(t, err)
+			assert.Equal(t, base+"/v1/videos/generations", submit["url"])
+			assert.Equal(t, "task_public", submit["headers"].(map[string]any)["Idempotency-Key"])
+			assert.Equal(t, tc.wantBody, submit["body"])
+			usage, err := call(t.Context(), "extractUsage", ctxFor(tc.model, tc.body))
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantUsage, usage)
+		})
+	}
+
+	// Aura clamps these to a default instead of rejecting them.
+	rejected := []struct {
+		name  string
+		model string
+		body  map[string]any
+	}{
+		{"native tier on fast", "doubao-seedance-2-0-fast-260128", map[string]any{"prompt": "a cat", "metadata": map[string]any{"resolution": "native1080p"}}},
+		{"native 4k on seedance 2.5", "doubao-seedance-2-5-260628", map[string]any{"prompt": "a cat", "metadata": map[string]any{"resolution": "native4k"}}},
+		{"duration above 15 seconds", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "seconds": 16}},
+		{"duration above 30 seconds", "doubao-seedance-2-5-260628", map[string]any{"prompt": "a cat", "seconds": 31}},
+		{"duration below 4 seconds", "doubao-seedance-2-0-mini-260615", map[string]any{"prompt": "a cat", "seconds": 3}},
+		{"fractional duration", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "seconds": 5.5}},
+		{"unknown ratio", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "metadata": map[string]any{"ratio": "2:1"}}},
+		{"reference image", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "images": []any{"https://cdn.example/a.png"}}},
+		{"empty prompt", "doubao-seedance-2-0-260128", map[string]any{"prompt": " "}},
+	}
+	for _, tc := range rejected {
+		t.Run("rejects "+tc.name, func(t *testing.T) {
+			_, err := call(t.Context(), "extractUsage", ctxFor(tc.model, tc.body))
+			require.Error(t, err)
+		})
+	}
+
+	accepted, err := call(t.Context(), "parseSubmitResponse", ctxFor("doubao-seedance-2-0-260128", nil),
+		map[string]any{"statusCode": 202, "body": map[string]any{"task_id": "aura_task", "status": "queued", "cost": 384, "downgrades": []any{}}})
+	require.NoError(t, err)
+	assert.Equal(t, "aura_task", accepted["taskId"])
+	_, err = call(t.Context(), "parseSubmitResponse", ctxFor("doubao-seedance-2-0-260128", nil),
+		map[string]any{"statusCode": 202, "body": map[string]any{"task_id": "aura_task", "downgrades": []any{"分辨率 4K → 720P"}}})
+	require.ErrorContains(t, err, "aura_task")
+
+	output := map[string]any{"asset_id": "a1", "kind": "视频", "url": "https://auraaigc.ccwu.cc:56813/aura/a1.mp4?X-Amz-Signature=s"}
+	results := []struct {
+		body map[string]any
+		want map[string]any
+	}{
+		{map[string]any{"status": "running", "progress": 40}, map[string]any{"status": "IN_PROGRESS", "progress": "40%"}},
+		{map[string]any{"status": "succeeded", "outputs": []any{output}}, map[string]any{"status": "SUCCESS", "progress": "100%"}},
+		{map[string]any{"status": "succeeded", "outputs": []any{}}, map[string]any{"status": "UNKNOWN", "reason": "succeeded task has no video output"}},
+		{
+			map[string]any{"status": "failed", "error": map[string]any{"code": "upstream_timeout", "message": "超时"}},
+			map[string]any{"status": "FAILURE", "progress": "100%", "reason": "upstream_timeout: 超时"},
+		},
+	}
+	for _, tc := range results {
+		result, err := call(t.Context(), "parseTaskResult", map[string]any{}, tc.body)
+		require.NoError(t, err)
+		assert.Equal(t, tc.want, result)
+	}
+
+	links := []struct {
+		link    string
+		wantURL string
+	}{
+		{"https://auraaigc.ccwu.cc:56813/aura/a1.mp4?X-Amz-Signature=s", "https://auraaigc.ccwu.cc:56813/aura/a1.mp4?X-Amz-Signature=s"},
+		{"https://auraaigc.ccwu.cc:56814/api/uploads/a1.mp4?exp=1&sig=s", base + "/api/uploads/a1.mp4?exp=1&sig=s"},
+		{"https://other.example/a1.mp4", ""},
+	}
+	for _, tc := range links {
+		var requested []string
+		ctx := jsplugin.WithFetcher(t.Context(), func(_ context.Context, request jsplugin.FetchRequest) (jsplugin.FetchResponse, error) {
+			requested = append(requested, request.URL)
+			body, err := common.Marshal(map[string]any{"status": "succeeded", "outputs": []any{map[string]any{"asset_id": "a1", "url": tc.link}}})
+			require.NoError(t, err)
+			return jsplugin.FetchResponse{Status: 200, Body: body}, nil
+		})
+		content, err := call(ctx, "buildContentRequest", map[string]any{
+			"baseUrl": base, "apiKey": "key", "artifactKey": "video", "upstreamTaskId": "aura_task",
+			"clientRequest": map[string]any{"method": "GET", "headers": map[string]any{}},
+		})
+		assert.Equal(t, []string{base + "/v1/tasks/aura_task"}, requested)
+		if tc.wantURL == "" {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"url": tc.wantURL, "method": "GET"}, content)
+	}
+}
+
 func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
 	require.NotNil(t, generation)

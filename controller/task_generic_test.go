@@ -689,6 +689,47 @@ func TestProxyTaskMediaAllowsOnlyCredentiallessCrossOriginRedirect(t *testing.T)
 	assert.Empty(t, destinationRange)
 }
 
+func TestProxyTaskMediaTrustsOnlyPluginAuthorizedFirstHop(t *testing.T) {
+	task := setupGenericTaskTest(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/redirect" {
+			http.Redirect(w, r, "/video", http.StatusFound)
+			return
+		}
+		_, _ = w.Write([]byte("video"))
+	}))
+	defer upstream.Close()
+	originalFetchSetting := *system_setting.GetFetchSetting()
+	system_setting.GetFetchSetting().EnableSSRFProtection = true
+	system_setting.GetFetchSetting().AllowPrivateIp = false
+	system_setting.GetFetchSetting().AllowedPorts = []string{"80", "443"}
+	t.Cleanup(func() { *system_setting.GetFetchSetting() = originalFetchSetting })
+	service.InitHttpClient()
+
+	proxy := func(descriptor *relaychannel.TaskContentRequest) (*httptest.ResponseRecorder, error) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/content", nil)
+		return recorder, proxyTaskMedia(c, task, descriptor)
+	}
+
+	recorder, err := proxy(&relaychannel.TaskContentRequest{URL: upstream.URL + "/video", Method: http.MethodGet})
+	require.NoError(t, err)
+	assert.Equal(t, "video", recorder.Body.String())
+
+	for name, descriptor := range map[string]*relaychannel.TaskContentRequest{
+		"credentialless first hop": {URL: upstream.URL + "/video", Method: http.MethodGet, Credentialless: true},
+		"credentialed redirect":    {URL: upstream.URL + "/redirect", Method: http.MethodGet},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := proxy(descriptor)
+			var proxyErr *taskMediaProxyError
+			require.ErrorAs(t, err, &proxyErr)
+			assert.Equal(t, "artifact_request_rejected", proxyErr.code)
+		})
+	}
+}
+
 func TestTaskMediaRequestHeaderPolicy(t *testing.T) {
 	header := http.Header{}
 	require.NoError(t, applyTaskMediaRequestHeaders(header, map[string]string{
