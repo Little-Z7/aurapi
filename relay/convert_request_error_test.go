@@ -50,9 +50,12 @@ func TestImageRequestReservesFinalQuantityBeforeUpstream(t *testing.T) {
 		name, body                                    string
 		tiered, passThrough, insufficient, retryReset bool
 		override                                      any
+		mapping, wantModel                            string
 		count, status                                 int
 	}{
 		{name: "top-level count", body: `{"model":"gpt-image-2","n":2,"parameters":{}}`, count: 2},
+		{name: "pass-through applies channel model mapping", body: `{"model":"openrouter/gpt-image-2","n":2,"size":"1024x1024"}`, count: 2, passThrough: true,
+			mapping: `{"openrouter/gpt-image-2":"gpt-image-2"}`, wantModel: "gpt-image-2"},
 		{name: "legacy channel quantity override", body: `{"model":"gpt-image-2","n":1}`, override: 4, count: 4},
 		{name: "expression channel quantity override", body: `{"model":"gpt-image-2","n":1}`, override: 4, count: 4, tiered: true},
 		{name: "pass-through quantity", body: `{"model":"gpt-image-2","n":2,"parameters":{}}`, count: 2, passThrough: true},
@@ -81,13 +84,17 @@ func TestImageRequestReservesFinalQuantityBeforeUpstream(t *testing.T) {
 			if tc.override != nil {
 				common.SetContextKey(c, constant.ContextKeyChannelParamOverride, map[string]any{"operations": []any{map[string]any{"path": "n", "mode": "set", "value": tc.override}}})
 			}
+			if tc.mapping != "" {
+				c.Set("model_mapping", tc.mapping)
+			}
+			originModel := gjson.GetBytes([]byte(tc.body), "model").String()
 			request, err := helper.GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
 			require.NoError(t, err)
 			reservation := &imageReservation{held: 20000, limit: 500000}
 			if tc.insufficient {
 				reservation.limit = reservation.held
 			}
-			info := &relaycommon.RelayInfo{Request: request, OriginModelName: "gpt-image-2", RelayMode: relayconstant.RelayModeImagesGenerations,
+			info := &relaycommon.RelayInfo{Request: request, OriginModelName: originModel, RelayMode: relayconstant.RelayModeImagesGenerations,
 				RequestURLPath: c.Request.URL.Path, Billing: reservation,
 				PriceData: hosttypes.PriceData{UsePrice: true, ModelPrice: 0.04, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
 			}
@@ -113,6 +120,14 @@ func TestImageRequestReservesFinalQuantityBeforeUpstream(t *testing.T) {
 			require.Len(t, received, 1)
 			body := <-received
 			assert.Equal(t, int64(tc.count), gjson.GetBytes(body, "n").Int())
+			wantModel := tc.wantModel
+			if wantModel == "" {
+				wantModel = originModel
+			}
+			assert.Equal(t, wantModel, gjson.GetBytes(body, "model").String())
+			if tc.mapping != "" {
+				assert.Equal(t, "1024x1024", gjson.GetBytes(body, "size").String(), "mapping rewrites only the model field")
+			}
 			assert.Equal(t, tc.count*20000, info.PriceData.QuotaToPreConsume)
 			assert.GreaterOrEqual(t, reservation.held, info.PriceData.QuotaToPreConsume)
 			assert.Nil(t, info.BillingImageCount)
