@@ -16,9 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type {
-  CustomDetector,
-  DetectorOptions,
+import LanguageDetector, {
+  type CustomDetector,
+  type DetectorOptions,
 } from 'i18next-browser-languagedetector'
 
 export const INTERFACE_LANGUAGE_OPTIONS = [
@@ -33,6 +33,9 @@ export const INTERFACE_LANGUAGE_OPTIONS = [
 
 export type InterfaceLanguageCode =
   (typeof INTERFACE_LANGUAGE_OPTIONS)[number]['code']
+
+export const SUPPORTED_INTERFACE_LANGUAGES: InterfaceLanguageCode[] =
+  INTERFACE_LANGUAGE_OPTIONS.map((language) => language.code)
 
 export function normalizeInterfaceLanguage(value?: string | null): string {
   if (!value) return 'en'
@@ -115,9 +118,15 @@ export function toIntlLocale(value?: string | null): string | undefined {
  */
 export const DEFAULT_INTERFACE_LANGUAGE: InterfaceLanguageCode = 'zhCN'
 
-export const defaultInterfaceLanguageDetector: CustomDetector = {
+const defaultInterfaceLanguageDetector: CustomDetector = {
   name: 'aurapiDefault',
   lookup: () => DEFAULT_INTERFACE_LANGUAGE,
+}
+
+export function createInterfaceLanguageDetector(): LanguageDetector {
+  const detector = new LanguageDetector()
+  detector.addDetector(defaultInterfaceLanguageDetector)
+  return detector
 }
 
 export const interfaceLanguageDetection: DetectorOptions = {

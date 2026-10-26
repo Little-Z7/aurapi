@@ -17,12 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18n from 'i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import {
-  defaultInterfaceLanguageDetector,
+  createInterfaceLanguageDetector,
   interfaceLanguageDetection,
+  SUPPORTED_INTERFACE_LANGUAGES,
+  toIntlLocale,
 } from './languages'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
@@ -42,16 +43,20 @@ export const resources = {
   zhTW,
 } as const
 
-const languageDetector = new LanguageDetector()
-languageDetector.addDetector(defaultInterfaceLanguageDetector)
+// index.html ships with lang="en"; keep the attribute in step with the
+// interface so screen readers and browser translation see the real language.
+// Registered before init so the detected language is applied too.
+i18n.on('languageChanged', (language) => {
+  document.documentElement.lang = toIntlLocale(language) ?? 'en'
+})
 
 i18n
-  .use(languageDetector)
+  .use(createInterfaceLanguageDetector())
   .use(initReactI18next)
   .init({
     resources,
     fallbackLng: 'en',
-    supportedLngs: ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
+    supportedLngs: SUPPORTED_INTERFACE_LANGUAGES,
     load: 'currentOnly',
     nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
     debug: import.meta.env.DEV,

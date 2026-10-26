@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient } from '@tanstack/react-query'
+import i18next from 'i18next'
 import { afterEach, describe, expect, test } from 'vitest'
 
 import { useAuthStore, type AuthBundle } from '../stores/auth-store'
 import {
+  applyAuthBundle,
   applyAuthRotation,
   bootstrapAuthentication,
   clearAuthenticatedClientState,
@@ -50,8 +52,52 @@ const bundle: AuthBundle = {
   },
 }
 
-afterEach(() => {
+afterEach(async () => {
   useAuthStore.getState().auth.reset('idle')
+  await i18next.changeLanguage('en')
+})
+
+describe('account language', () => {
+  const englishAccount: AuthBundle = {
+    ...bundle,
+    user: { ...bundle.user, setting: '{"language":"en"}' },
+  }
+
+  test('restoring a session shows the account language instead of the browser default', async () => {
+    await i18next.changeLanguage('zhCN')
+
+    applyAuthBundle(englishAccount, false)
+
+    expect(i18next.language).toBe('en')
+  })
+
+  test('a later refresh for the same user keeps the language picked in this tab', async () => {
+    applyAuthBundle(englishAccount, false)
+    await i18next.changeLanguage('fr')
+
+    applyAuthBundle(englishAccount, false)
+
+    expect(i18next.language).toBe('fr')
+  })
+
+  test('an unsupported saved language keeps the current language', async () => {
+    await i18next.changeLanguage('zhCN')
+
+    applyAuthBundle(
+      { ...bundle, user: { ...bundle.user, setting: '{"language":"xx"}' } },
+      false
+    )
+
+    expect(i18next.language).toBe('zhCN')
+  })
+
+  test('an account without a saved language keeps the current language', async () => {
+    await i18next.changeLanguage('zhCN')
+
+    applyAuthBundle(bundle, false)
+
+    expect(i18next.language).toBe('zhCN')
+  })
 })
 
 describe('authentication session coordination', () => {

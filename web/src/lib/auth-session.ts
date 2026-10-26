@@ -18,8 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { QueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { t } from 'i18next'
+import i18n, { t } from 'i18next'
 
+import { getSavedLanguage } from '@/features/auth/lib/auth-redirect'
+import {
+  convertDetectedLanguage,
+  SUPPORTED_INTERFACE_LANGUAGES,
+} from '@/i18n/languages'
 import { publishAuthSessionEvent } from '@/lib/auth-session-sync'
 import { hasSessionHint } from '@/lib/session-hint'
 import {
@@ -151,9 +156,27 @@ export function applyAuthBundle(
   bundle: AuthBundle,
   synchronizeTabs = true
 ): void {
-  const previousSID = useAuthStore.getState().auth.session?.sid
+  const previousAuth = useAuthStore.getState().auth
+  const previousSID = previousAuth.session?.sid
+  const previousUserID = previousAuth.user?.id
   authEpoch += 1
-  useAuthStore.getState().auth.setBundle(bundle)
+  previousAuth.setBundle(bundle)
+  // The account language wins whenever this page takes on a user: at sign-in
+  // and at the refresh that restores a session after a reload, where the
+  // browser cache would otherwise show the default language. Later refreshes
+  // for the same user keep the language picked in this tab.
+  const savedLanguage =
+    previousUserID === bundle.user.id
+      ? undefined
+      : getSavedLanguage(bundle.user)
+  const accountLanguage =
+    savedLanguage && convertDetectedLanguage(savedLanguage)
+  if (
+    accountLanguage &&
+    SUPPORTED_INTERFACE_LANGUAGES.some((code) => code === accountLanguage)
+  ) {
+    void i18n.changeLanguage(accountLanguage)
+  }
   if (synchronizeTabs && previousSID !== bundle.session.sid) {
     publishAuthSessionEvent('authenticated', bundle.session.sid)
   }

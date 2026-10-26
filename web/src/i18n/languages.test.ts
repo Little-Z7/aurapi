@@ -16,14 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import i18next from 'i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
+import i18next, { type i18n } from 'i18next'
 import { afterEach, describe, expect, test } from 'vitest'
 
 import {
   convertDetectedLanguage,
-  defaultInterfaceLanguageDetector,
+  createInterfaceLanguageDetector,
   interfaceLanguageDetection,
+  SUPPORTED_INTERFACE_LANGUAGES,
 } from './languages'
 
 describe('convertDetectedLanguage', () => {
@@ -55,20 +55,20 @@ describe('convertDetectedLanguage', () => {
 })
 
 describe('interface language detection', () => {
-  const supportedLngs = ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW']
-
-  async function detectLanguage(): Promise<string> {
-    const detector = new LanguageDetector()
-    detector.addDetector(defaultInterfaceLanguageDetector)
+  async function loadInterface(): Promise<i18n> {
     const instance = i18next.createInstance()
-    await instance.use(detector).init({
+    await instance.use(createInterfaceLanguageDetector()).init({
       resources: { en: { translation: {} }, zhCN: { translation: {} } },
       fallbackLng: 'en',
-      supportedLngs,
+      supportedLngs: SUPPORTED_INTERFACE_LANGUAGES,
       load: 'currentOnly',
       detection: interfaceLanguageDetection,
     })
-    return instance.language
+    return instance
+  }
+
+  async function detectLanguage(): Promise<string> {
+    return (await loadInterface()).language
   }
 
   afterEach(() => {
@@ -83,10 +83,19 @@ describe('interface language detection', () => {
   })
 
   test('a language picked earlier is kept on the next load', async () => {
-    for (const code of supportedLngs) {
+    for (const code of SUPPORTED_INTERFACE_LANGUAGES) {
       localStorage.setItem('aurapi-language', code)
       expect(await detectLanguage()).toBe(code)
     }
+  })
+
+  test('switching to English is remembered for the next load', async () => {
+    const current = await loadInterface()
+
+    await current.changeLanguage('en')
+
+    expect(localStorage.getItem('aurapi-language')).toBe('en')
+    expect(await detectLanguage()).toBe('en')
   })
 
   test('a language guessed under the upstream i18nextLng key is ignored', async () => {
