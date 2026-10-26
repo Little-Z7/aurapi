@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
+var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "maitoken", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
 
 func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -180,6 +180,108 @@ func TestBuiltInResponsesDecodersEchoChannelMappedAlias(t *testing.T) {
 	}
 }
 
+func TestMaiTokenPluginBuildsPerModelBodiesAndRejectsChargedMistakes(t *testing.T) {
+	generation := jsplugin.DefaultRegistry.Generation()
+	require.NotNil(t, generation)
+	plugin, found := generation.Get("maitoken")
+	require.True(t, found)
+
+	call := func(hook string, ctx map[string]any) (map[string]any, error) {
+		value, err := plugin.Engine.Call(t.Context(), hook, ctx)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := common.Marshal(value)
+		require.NoError(t, err)
+		var decoded map[string]any
+		require.NoError(t, common.Unmarshal(encoded, &decoded))
+		return decoded, nil
+	}
+	ctxFor := func(model string, body map[string]any) map[string]any {
+		return map[string]any{"baseUrl": "https://api.mai-token.com", "apiKey": "key", "model": model, "upstreamModel": model, "requestBody": body}
+	}
+
+	cases := []struct {
+		name      string
+		model     string
+		body      map[string]any
+		wantBody  map[string]any
+		wantUsage map[string]any
+	}{
+		{
+			name:  "seedance 2.0 sku with string seconds and silent output",
+			model: "doubao-seedance-2-0-260128",
+			body:  map[string]any{"prompt": "a cat", "seconds": 8, "metadata": map[string]any{"resolution": "1080p", "ratio": "9:16", "generate_audio": false}},
+			wantBody: map[string]any{
+				"model": "sd-2.0-1080p", "prompt": "a cat", "seconds": "8", "ratio": "9:16", "generate_audio": false,
+				"content": []any{map[string]any{"type": "text", "text": "a cat"}},
+			},
+			wantUsage: map[string]any{"seconds": float64(8), "resolution": "1080p"},
+		},
+		{
+			name:  "mini video-v1 contract with first and last frame",
+			model: "doubao-seedance-2-0-mini-260615",
+			body: map[string]any{"prompt": "a cat", "seconds": 4, "size": "854x480", "metadata": map[string]any{"content": []any{
+				map[string]any{"type": "image_url", "role": "first_frame", "image_url": map[string]any{"url": "https://cdn.example/a.png"}},
+				map[string]any{"type": "image_url", "role": "last_frame", "image_url": map[string]any{"url": "https://cdn.example/b.png"}},
+			}}},
+			wantBody: map[string]any{
+				"contract_version": "video-v1", "model": "sd-mini-480p", "prompt": "a cat", "duration": float64(4), "resolution": "480p",
+				"references": []any{
+					map[string]any{"type": "image", "role": "first_frame", "source": "https://cdn.example/a.png"},
+					map[string]any{"type": "image", "role": "last_frame", "source": "https://cdn.example/b.png"},
+				},
+			},
+			wantUsage: map[string]any{"seconds": float64(4), "resolution": "480p"},
+		},
+		{
+			name:      "seedance 2.5 single sku with image list",
+			model:     "doubao-seedance-2-5-260628",
+			body:      map[string]any{"prompt": "a cat", "duration": 30, "images": []any{"https://cdn.example/a.png"}},
+			wantBody:  map[string]any{"model": "sd-2.5-720p", "prompt": "a cat", "duration": float64(30), "images": []any{"https://cdn.example/a.png"}},
+			wantUsage: map[string]any{"seconds": float64(30), "resolution": "720p"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			submit, err := call("buildSubmitRequest", ctxFor(tc.model, tc.body))
+			require.NoError(t, err)
+			assert.Equal(t, "https://api.mai-token.com/v1/videos", submit["url"])
+			assert.Equal(t, tc.wantBody, submit["body"])
+			usage, err := call("extractUsage", ctxFor(tc.model, tc.body))
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantUsage, usage)
+		})
+	}
+
+	// Mai Token charges each of these in full instead of rejecting them.
+	rejected := []struct {
+		name  string
+		model string
+		body  map[string]any
+	}{
+		{"unlisted duration", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "seconds": 16}},
+		{"fractional duration", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "seconds": 5.5}},
+		{"mini below its minimum", "doubao-seedance-2-0-mini-260615", map[string]any{"prompt": "a cat", "seconds": 3}},
+		{"resolution without a sku", "doubao-seedance-2-5-260628", map[string]any{"prompt": "a cat", "metadata": map[string]any{"resolution": "1080p"}}},
+		{"unknown ratio", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "metadata": map[string]any{"ratio": "2:1"}}},
+		{"silent output where audio is always billed", "doubao-seedance-2-5-260628", map[string]any{"prompt": "a cat", "metadata": map[string]any{"generate_audio": false}}},
+		{"audio reference without an image", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "metadata": map[string]any{"content": []any{
+			map[string]any{"type": "audio_url", "role": "reference_audio", "audio_url": map[string]any{"url": "https://cdn.example/a.mp3"}},
+		}}}},
+		{"last frame on seedance 2.5", "doubao-seedance-2-5-260628", map[string]any{"prompt": "a cat", "metadata": map[string]any{"content": []any{
+			map[string]any{"type": "image_url", "role": "first_frame", "image_url": map[string]any{"url": "https://cdn.example/a.png"}},
+			map[string]any{"type": "image_url", "role": "last_frame", "image_url": map[string]any{"url": "https://cdn.example/b.png"}},
+		}}}},
+		{"non-https reference", "doubao-seedance-2-0-260128", map[string]any{"prompt": "a cat", "images": []any{"data:image/png;base64,AAAA"}}},
+	}
+	for _, tc := range rejected {
+		t.Run("rejects "+tc.name, func(t *testing.T) {
+			_, err := call("extractUsage", ctxFor(tc.model, tc.body))
+			require.Error(t, err)
+		})
+	}
+}
 func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
 	require.NotNil(t, generation)
