@@ -1,6 +1,9 @@
 package helper
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"maps"
 	"strings"
 
@@ -45,7 +48,11 @@ func ResolveImageBillingRequestInput(c *gin.Context, info *relaycommon.RelayInfo
 	if err != nil {
 		return input, err
 	}
-	body := map[string]any{"model": request.Model, "n": count, "size": request.Size, "quality": request.Quality}
+	body, err := imageBillingFacts(request.Extra)
+	if err != nil {
+		return input, err
+	}
+	maps.Copy(body, map[string]any{"model": request.Model, "n": count, "size": request.Size, "quality": request.Quality})
 	if request.BillingParameters != nil {
 		body["parameters"] = request.BillingParameters
 	}
@@ -56,6 +63,52 @@ func ResolveImageBillingRequestInput(c *gin.Context, info *relaycommon.RelayInfo
 	input.Body = encoded
 	input.ImageCount = &count
 	return input, nil
+}
+
+// imageBillingLabelMaxLength bounds the free-form provider labels copied into
+// the billing context. They only select a price tier, so longer values are
+// malformed rather than meaningful.
+const imageBillingLabelMaxLength = 32
+
+// imageBillingFacts extracts the provider image fields that select a price
+// tier but are not declared on dto.ImageRequest (OpenRouter Images API:
+// resolution, aspect_ratio, input_references). Only bounded labels and the
+// reference count are kept; reference payloads never enter the billing body.
+// Resolution is upper-cased so a case variant accepted upstream cannot fall
+// through to a cheaper tier.
+func imageBillingFacts(extra map[string]json.RawMessage) (map[string]any, error) {
+	facts := map[string]any{"input_reference_count": 0}
+	for _, key := range []string{"resolution", "aspect_ratio"} {
+		raw, exists := extra[key]
+		if !exists {
+			continue
+		}
+		var value string
+		if err := common.Unmarshal(raw, &value); err != nil {
+			return nil, fmt.Errorf("%s must be a string", key)
+		}
+		value = strings.TrimSpace(value)
+		if len(value) > imageBillingLabelMaxLength {
+			return nil, fmt.Errorf("%s must be at most %d characters", key, imageBillingLabelMaxLength)
+		}
+		if key == "resolution" {
+			value = strings.ToUpper(value)
+		}
+		if value != "" {
+			facts[key] = value
+		}
+	}
+	if raw, exists := extra["input_references"]; exists {
+		var references []json.RawMessage
+		if err := common.Unmarshal(raw, &references); err != nil {
+			return nil, errors.New("input_references must be an array")
+		}
+		if len(references) > dto.MaxImageN {
+			return nil, fmt.Errorf("input_references must contain at most %d items", dto.MaxImageN)
+		}
+		facts["input_reference_count"] = len(references)
+	}
+	return facts, nil
 }
 
 func BuildBillingExprRequestInputFromRequest(request dto.Request, headers map[string]string) (billingexpr.RequestInput, error) {

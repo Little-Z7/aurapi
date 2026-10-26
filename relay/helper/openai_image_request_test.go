@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -19,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestLegacyDalleValidationAndPricesRemainCompatible(t *testing.T) {
@@ -154,6 +156,55 @@ func TestImageBillingRequestValidatesProviderCountWithoutOverriding(t *testing.T
 		cost, _, err := billingexpr.RunExprWithRequest(`tier("image", fixed(0.04)) * image_count`, billingexpr.TokenParams{}, input)
 		require.NoError(t, err)
 		require.Equal(t, float64(tc.count)*40000, cost)
+	}
+}
+
+// Provider image labels and the reference count reach image_count expressions
+// as bounded scalars, while reference payloads stay out of the billing body.
+func TestImageBillingRequestCarriesProviderTierFacts(t *testing.T) {
+	const expr = `(param("input_reference_count") > 0 ? (param("resolution") == "4K" ? tier("i2i_4k", fixed(0.332)) : tier("i2i_1k", fixed(0.102))) : (param("resolution") == "4K" ? tier("t2i_4k", fixed(0.328)) : param("resolution") == "2K" ? tier("t2i_2k", fixed(0.146)) : tier("t2i_1k", fixed(0.098)))) * image_count`
+	for _, tc := range []struct {
+		body       string
+		invalid    string
+		resolution any
+		aspect     any
+		references int64
+		tier       string
+		cost       float64
+	}{
+		{body: `{"model":"google/gemini-3.1-flash-image-preview","prompt":"a cat"}`, tier: "t2i_1k", cost: 98000},
+		{body: `{"model":"m","prompt":"a cat","resolution":"2K","aspect_ratio":"16:9","n":2}`, resolution: "2K", aspect: "16:9", tier: "t2i_2k", cost: 292000},
+		{body: `{"model":"m","prompt":"a cat","resolution":" 4k "}`, resolution: "4K", tier: "t2i_4k", cost: 328000},
+		{body: `{"model":"m","prompt":"a cat","resolution":"4K","n":3,"input_references":[{"type":"image_url","image_url":{"url":"data:image/png;base64,QUJD"}},{"type":"image_url","image_url":{"url":"https://example.com/a.png"}}]}`, resolution: "4K", references: 2, tier: "i2i_4k", cost: 996000},
+		{body: `{"model":"m","prompt":"a cat","resolution":null,"aspect_ratio":"","input_references":null}`, tier: "t2i_1k", cost: 98000},
+		{body: `{"model":"m","prompt":"a cat","input_references":[]}`, tier: "t2i_1k", cost: 98000},
+		{body: `{"model":"m","prompt":"a cat","resolution":4}`, invalid: "resolution must be a string"},
+		{body: `{"model":"m","prompt":"a cat","aspect_ratio":{"w":16}}`, invalid: "aspect_ratio must be a string"},
+		{body: `{"model":"m","prompt":"a cat","resolution":"` + strings.Repeat("K", 33) + `"}`, invalid: "resolution must be at most 32 characters"},
+		{body: `{"model":"m","prompt":"a cat","input_references":{"type":"image_url"}}`, invalid: "input_references must be an array"},
+		{body: `{"model":"m","prompt":"a cat","input_references":[` + strings.TrimSuffix(strings.Repeat(`{},`, dto.MaxImageN+1), ",") + `]}`, invalid: fmt.Sprintf("input_references must contain at most %d items", dto.MaxImageN)},
+	} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewBufferString(tc.body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		request, err := GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
+		if tc.invalid != "" {
+			require.ErrorContains(t, err, tc.invalid, tc.body)
+			continue
+		}
+		require.NoError(t, err, tc.body)
+		input, err := ResolveImageBillingRequestInput(c, &relaycommon.RelayInfo{Request: request}, billingexpr.RequestInput{})
+		require.NoError(t, err, tc.body)
+		assert.Equal(t, tc.resolution, gjson.GetBytes(input.Body, "resolution").Value(), tc.body)
+		assert.Equal(t, tc.aspect, gjson.GetBytes(input.Body, "aspect_ratio").Value(), tc.body)
+		assert.Equal(t, tc.references, gjson.GetBytes(input.Body, "input_reference_count").Int(), tc.body)
+		assert.False(t, gjson.GetBytes(input.Body, "input_references").Exists(), tc.body)
+		assert.NotContains(t, string(input.Body), "QUJD", tc.body)
+		assert.NotContains(t, string(input.Body), "a cat", tc.body)
+		cost, trace, err := billingexpr.RunExprWithRequest(expr, billingexpr.TokenParams{}, input)
+		require.NoError(t, err, tc.body)
+		assert.Equal(t, tc.tier, trace.MatchedTier, tc.body)
+		assert.InDelta(t, tc.cost, cost, 1e-6, tc.body)
 	}
 }
 

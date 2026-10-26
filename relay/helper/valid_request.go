@@ -306,6 +306,9 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 		}
 		imageRequest.BillingParameters = parameters
 	}
+	if _, err := imageBillingFacts(imageRequest.Extra); err != nil {
+		return nil, err
+	}
 	if _, err := imageRequest.ImageCount(false); err != nil {
 		return nil, err
 	}
