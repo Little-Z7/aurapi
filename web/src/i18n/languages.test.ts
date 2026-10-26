@@ -16,9 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, test } from 'vitest'
+import i18next from 'i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
+import { afterEach, describe, expect, test } from 'vitest'
 
-import { convertDetectedLanguage } from './languages'
+import {
+  convertDetectedLanguage,
+  defaultInterfaceLanguageDetector,
+  interfaceLanguageDetection,
+} from './languages'
 
 describe('convertDetectedLanguage', () => {
   test('maps browser BCP-47 Chinese tags onto interface codes', () => {
@@ -45,5 +51,53 @@ describe('convertDetectedLanguage', () => {
     expect(convertDetectedLanguage('en')).toBe('en')
     expect(convertDetectedLanguage('fr-FR')).toBe('fr-FR')
     expect(convertDetectedLanguage('ja')).toBe('ja')
+  })
+})
+
+describe('interface language detection', () => {
+  const supportedLngs = ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW']
+
+  async function detectLanguage(): Promise<string> {
+    const detector = new LanguageDetector()
+    detector.addDetector(defaultInterfaceLanguageDetector)
+    const instance = i18next.createInstance()
+    await instance.use(detector).init({
+      resources: { en: { translation: {} }, zhCN: { translation: {} } },
+      fallbackLng: 'en',
+      supportedLngs,
+      load: 'currentOnly',
+      detection: interfaceLanguageDetection,
+    })
+    return instance.language
+  }
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  test('first visit with an English browser opens in Simplified Chinese and caches it', async () => {
+    expect(navigator.language).toMatch(/^en/)
+
+    expect(await detectLanguage()).toBe('zhCN')
+    expect(localStorage.getItem('aurapi-language')).toBe('zhCN')
+  })
+
+  test('a language picked earlier is kept on the next load', async () => {
+    for (const code of supportedLngs) {
+      localStorage.setItem('aurapi-language', code)
+      expect(await detectLanguage()).toBe(code)
+    }
+  })
+
+  test('a language guessed under the upstream i18nextLng key is ignored', async () => {
+    localStorage.setItem('i18nextLng', 'en')
+
+    expect(await detectLanguage()).toBe('zhCN')
+  })
+
+  test('an unsupported cached value falls back to the default language', async () => {
+    localStorage.setItem('aurapi-language', 'xx-invalid')
+
+    expect(await detectLanguage()).toBe('zhCN')
   })
 })

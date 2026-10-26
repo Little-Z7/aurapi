@@ -16,6 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type {
+  CustomDetector,
+  DetectorOptions,
+} from 'i18next-browser-languagedetector'
+
 export const INTERFACE_LANGUAGE_OPTIONS = [
   { code: 'zhCN', label: '简体中文' },
   { code: 'en', label: 'English' },
@@ -99,4 +104,27 @@ export function toIntlLocale(value?: string | null): string | undefined {
   } catch {
     return undefined
   }
+}
+
+/**
+ * aurapi serves a Chinese-speaking audience, so a visitor who has never picked
+ * a language sees Simplified Chinese whatever the browser reports. The
+ * language in use is cached under its own key; the upstream `i18nextLng` key
+ * is not read because it holds languages that were only guessed from the
+ * browser.
+ */
+export const DEFAULT_INTERFACE_LANGUAGE: InterfaceLanguageCode = 'zhCN'
+
+export const defaultInterfaceLanguageDetector: CustomDetector = {
+  name: 'aurapiDefault',
+  lookup: () => DEFAULT_INTERFACE_LANGUAGE,
+}
+
+export const interfaceLanguageDetection: DetectorOptions = {
+  order: ['localStorage', defaultInterfaceLanguageDetector.name],
+  lookupLocalStorage: 'aurapi-language',
+  caches: ['localStorage'],
+  // Cached values are interface codes, but keep accepting BCP-47 tags
+  // (`zh-CN`/`zh-TW`/`zh`) so the mapping stays stable across round-trips.
+  convertDetectedLanguage,
 }
